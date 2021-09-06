@@ -40,19 +40,17 @@ import { NestModule } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { ModuleRef } from '@nestjs/core';
 import { MiddlewareConsumer } from '@nestjs/common';
+import { globalOptions } from './internal/globalOptions'
 
 const logger = new Logger('I18nService');
 
 const defaultOptions: Partial<I18nOptions> = {
   resolvers: [],
-  method: 'interceptor',
 };
 
 @Global()
 @Module({})
 export class I18nModule implements OnModuleInit, NestModule {
-  private options: I18nOptions;
-  private static options: I18nOptions;
 
   constructor(
     private readonly i18n: I18nService,
@@ -66,7 +64,7 @@ export class I18nModule implements OnModuleInit, NestModule {
   }
 
   configure(consumer: MiddlewareConsumer): MiddlewareConsumer | void {
-    if (this.options.method === 'interceptor') return;
+    if (globalOptions.method === 'interceptor') return;
 
     const adapterName =
       this.httpAdapterHost.httpAdapter &&
@@ -89,7 +87,7 @@ export class I18nModule implements OnModuleInit, NestModule {
   }
 
   static forRoot(options: I18nOptions): DynamicModule {
-    this.options = this.sanitizeI18nOptions(options);
+    options = this.sanitizeI18nOptions(options);
 
     const i18nLanguagesSubject = new BehaviorSubject<string[]>([]);
     const i18nTranslationSubject = new BehaviorSubject<I18nTranslation>({});
@@ -166,7 +164,7 @@ export class I18nModule implements OnModuleInit, NestModule {
       module: I18nModule,
       providers: [
         { provide: Logger, useValue: logger },
-        this.options.method === 'interceptor'
+        globalOptions.method === 'interceptor'
           ? {
               provide: APP_INTERCEPTOR,
               useClass: I18nLanguageInterceptor,
@@ -189,8 +187,6 @@ export class I18nModule implements OnModuleInit, NestModule {
   }
 
   static forRootAsync(options: I18nAsyncOptions): DynamicModule {
-    const method = options.method || defaultOptions.method;
-    this.options.method = method;
     const asyncOptionsProvider = this.createAsyncOptionsProvider(options);
     const asyncTranslationProvider = this.createAsyncTranslationProvider();
     const asyncLanguagesProvider = this.createAsyncLanguagesProvider();
@@ -224,7 +220,7 @@ export class I18nModule implements OnModuleInit, NestModule {
       imports: options.imports || [],
       providers: [
         { provide: Logger, useValue: logger },
-        method === 'interceptor'
+        globalOptions.method === 'interceptor'
           ? {
               provide: APP_INTERCEPTOR,
               useClass: I18nLanguageInterceptor,

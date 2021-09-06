@@ -10,7 +10,7 @@ export type ResolverWithOptions = {
 
 export type I18nOptionsWithoutResolvers = Omit<
   I18nOptions,
-  'resolvers' | 'parser' | 'method'
+  'resolvers' | 'parser'
 >;
 
 export type I18nOptionResolver =
@@ -18,15 +18,10 @@ export type I18nOptionResolver =
   | Type<I18nResolver>
   | I18nResolver;
 
-export type I18nProcessMethod = 'interceptor' | 'middleware';
 
 export interface I18nOptions {
   fallbackLanguage: string;
   fallbacks?: { [key: string]: string };
-  /**
-   * @default 'interceptor'
-   */
-  method?: I18nProcessMethod;
   resolvers?: I18nOptionResolver[];
   parser: Type<I18nParser>;
   parserOptions: any;
@@ -42,10 +37,6 @@ export interface I18nAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
   name?: string;
   useExisting?: Type<I18nOptionsFactory>;
   useClass?: Type<I18nOptionsFactory>;
-  /**
-   * @default 'interceptor'
-   */
-  method?: I18nProcessMethod;
   useFactory?: (
     ...args: any[]
   ) => Promise<I18nOptionsWithoutResolvers> | I18nOptionsWithoutResolvers;
