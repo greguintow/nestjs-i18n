@@ -26,6 +26,10 @@ export class CookieResolver implements I18nResolver {
         break;
     }
 
+    return this.resolveByRequest(req);
+  }
+
+  resolveByRequest(req: any) {
     if (req) {
       if (!req.cookies && req.headers.cookie) {
         req.cookies = cookie.parse(req.headers.cookie);
