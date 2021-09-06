@@ -125,6 +125,35 @@ export class I18nService {
     }
   }
 
+  public async getLanguageByRequest(req: any): Promise<string> {
+    let language = null;
+
+    if (req) {
+      if (req.i18nLang) {
+        return req.i18nLang;
+      }
+      req.i18nService = this;
+
+      for (const r of this.i18nResolvers) {
+        const resolver = await this.getResolver(r);
+
+        language = resolver.resolveByRequest(req, this);
+
+        if (language instanceof Promise) {
+          language = await (language as Promise<string>);
+        }
+
+        if (language !== undefined) {
+          break;
+        }
+      }
+
+      req.i18nLang = language || this.i18nOptions.fallbackLanguage;
+    }
+
+    return req.i18nLang || this.i18nOptions.fallbackLanguage;
+  }
+
   public async getLanguageByContext(
     context: ExecutionContext,
   ): Promise<string> {
@@ -163,12 +192,10 @@ export class I18nService {
       if (r.hasOwnProperty('use') && r.hasOwnProperty('options')) {
         const resolver = r as ResolverWithOptions;
         return this.moduleRef.get(resolver.use);
-      } else {
-        return this.moduleRef.get(r as Type<I18nResolver>);
       }
-    } else {
-      return r as I18nResolver;
+      return this.moduleRef.get(r as Type<I18nResolver>);
     }
+    return r as I18nResolver;
   }
 
   private async translateObject(
