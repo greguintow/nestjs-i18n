@@ -18,20 +18,26 @@ export class AcceptLanguageResolver implements I18nResolver {
         break;
       case 'graphql':
         [, , { req, i18nService: service }] = context.getArgs();
-        if(!req) return undefined;
+        if (!req) return undefined;
         break;
       default:
         return undefined;
     }
 
+    return this.resolveByRequest(req, service);
+  }
+
+  async resolveByRequest(req: any, service: I18nService) {
     const lang = req.raw
       ? req.raw.headers?.['accept-language']
       : req?.headers?.['accept-language'];
 
     if (lang) {
       const supportedLangs = await service.getSupportedLanguages();
-      return pick(supportedLangs, lang)
-        ?? pick(supportedLangs, lang, { loose: true });
+      return (
+        pick(supportedLangs, lang) ??
+        pick(supportedLangs, lang, { loose: true })
+      );
     }
     return lang;
   }

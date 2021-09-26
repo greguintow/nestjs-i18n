@@ -22,6 +22,10 @@ export class HeaderResolver implements I18nResolver {
         break;
     }
 
+    return this.resolveByRequest(req);
+  }
+
+  resolveByRequest(req: any) {
     let lang: string;
 
     if (req) {

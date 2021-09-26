@@ -18,6 +18,7 @@ export type I18nOptionResolver =
   | Type<I18nResolver>
   | I18nResolver;
 
+
 export interface I18nOptions {
   fallbackLanguage: string;
   fallbacks?: { [key: string]: string };

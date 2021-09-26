@@ -28,6 +28,7 @@ import {
   ClassProvider,
   OnModuleInit,
 } from '@nestjs/common/interfaces';
+import { I18nLanguageMiddleware } from './middleware/i18n-language-middleware';
 import { I18nLanguageInterceptor } from './interceptors/i18n-language.interceptor';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { getI18nResolverOptionsToken } from './decorators/i18n-resolver-options.decorator';
@@ -35,6 +36,11 @@ import { shouldResolve } from './utils/util';
 import { I18nTranslation } from './interfaces/i18n-translation.interface';
 import { I18nParser } from './parsers/i18n.parser';
 import { Observable, BehaviorSubject } from 'rxjs';
+import { NestModule } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
+import { ModuleRef } from '@nestjs/core';
+import { MiddlewareConsumer } from '@nestjs/common';
+import { globalOptions } from './internal/globalOptions'
 
 const logger = new Logger('I18nService');
 
@@ -44,12 +50,40 @@ const defaultOptions: Partial<I18nOptions> = {
 
 @Global()
 @Module({})
-export class I18nModule implements OnModuleInit {
-  constructor(private readonly i18n: I18nService) {}
+export class I18nModule implements OnModuleInit, NestModule {
+
+  constructor(
+    private readonly i18n: I18nService,
+    private readonly httpAdapterHost: HttpAdapterHost,
+    private readonly moduleRef: ModuleRef,
+  ) {}
 
   async onModuleInit() {
     // makes sure languages & translations are loaded before application loads
     await this.i18n.refresh();
+  }
+
+  configure(consumer: MiddlewareConsumer): MiddlewareConsumer | void {
+    if (globalOptions.method === 'interceptor') return;
+
+    const adapterName =
+      this.httpAdapterHost.httpAdapter &&
+      this.httpAdapterHost.httpAdapter.constructor &&
+      this.httpAdapterHost.httpAdapter.constructor.name;
+
+    if (adapterName === 'FastifyAdapter') {
+      this.moduleRef
+        .create(I18nLanguageMiddleware)
+        .then((i18nLanguageMiddleware) => {
+          this.httpAdapterHost.httpAdapter
+            .getInstance()
+            .addHook('preHandler', (req, res, done) => {
+              i18nLanguageMiddleware.use(req, res, done);
+            });
+        });
+    } else {
+      consumer.apply(I18nLanguageMiddleware).forRoutes('*');
+    }
   }
 
   static forRoot(options: I18nOptions): DynamicModule {
@@ -130,10 +164,12 @@ export class I18nModule implements OnModuleInit {
       module: I18nModule,
       providers: [
         { provide: Logger, useValue: logger },
-        {
-          provide: APP_INTERCEPTOR,
-          useClass: I18nLanguageInterceptor,
-        },
+        globalOptions.method === 'interceptor'
+          ? {
+              provide: APP_INTERCEPTOR,
+              useClass: I18nLanguageInterceptor,
+            }
+          : null,
         I18nService,
         I18nRequestScopeService,
         i18nOptions,
@@ -145,7 +181,7 @@ export class I18nModule implements OnModuleInit {
         i18nLanguagesSubjectProvider,
         i18nTranslationSubjectProvider,
         ...this.createResolverProviders(options.resolvers),
-      ],
+      ].filter(Boolean),
       exports: [I18nService, I18nRequestScopeService, languagessProvider],
     };
   }
@@ -184,10 +220,12 @@ export class I18nModule implements OnModuleInit {
       imports: options.imports || [],
       providers: [
         { provide: Logger, useValue: logger },
-        {
-          provide: APP_INTERCEPTOR,
-          useClass: I18nLanguageInterceptor,
-        },
+        globalOptions.method === 'interceptor'
+          ? {
+              provide: APP_INTERCEPTOR,
+              useClass: I18nLanguageInterceptor,
+            }
+          : null,
         asyncOptionsProvider,
         asyncTranslationProvider,
         asyncLanguagesProvider,
@@ -199,7 +237,7 @@ export class I18nModule implements OnModuleInit {
         i18nLanguagesSubjectProvider,
         i18nTranslationSubjectProvider,
         ...this.createResolverProviders(options.resolvers),
-      ],
+      ].filter(Boolean),
       exports: [I18nService, I18nRequestScopeService, asyncLanguagesProvider],
     };
   }
@@ -290,7 +328,7 @@ export class I18nModule implements OnModuleInit {
         if (r.hasOwnProperty('use') && r.hasOwnProperty('options')) {
           const resolver = r as ResolverWithOptions;
           const optionsToken = getI18nResolverOptionsToken(
-            (resolver.use as unknown) as () => void,
+            resolver.use as unknown as () => void,
           );
           providers.push({
             provide: resolver.use,
@@ -303,7 +341,7 @@ export class I18nModule implements OnModuleInit {
           });
         } else {
           const optionsToken = getI18nResolverOptionsToken(
-            (r as unknown) as () => void,
+            r as unknown as () => void,
           );
           providers.push({
             provide: r,
